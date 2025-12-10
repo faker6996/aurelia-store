@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocalStorage } from "react-use";
+import { Link } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Toaster, toast } from "sonner";
 import { Filter, ShoppingCart, User as UserIcon, Search, LogOut } from "lucide-react";
@@ -23,6 +24,18 @@ import { CartSheet } from "@/components/store/CartSheet";
 import { LoginModal } from "@/components/auth/LoginModal";
 import { useAuthStore } from "@/stores/authStore";
 const MAX_PRICE = 500;
+const heroVariants = [
+  {
+    title: "Edge-First Ecommerce, Redefined.",
+    subtitle: "Discover our curated collection of high-quality products, delivered with unparalleled speed and reliability.",
+    cta: "Shop The Collection"
+  },
+  {
+    title: "Elevate Your Shopping Experience.",
+    subtitle: "Performance and style, seamlessly integrated. Find your next favorite item today.",
+    cta: "Explore Now"
+  }
+];
 export function HomePage() {
   const isMobile = useIsMobile();
   const [filters, setFilters] = useState<Filters>({ categories: [], brands: [], priceRange: [0, MAX_PRICE] });
@@ -31,7 +44,8 @@ export function HomePage() {
   const [isLoginModalOpen, setLoginModalOpen] = useState(false);
   const { user, isLoggedIn, logout } = useAuthStore();
   const [localCartId, setLocalCartId] = useLocalStorage("cartId", crypto.randomUUID());
-  const cartId = isLoggedIn ? user?.id : localCartId;
+  const [heroVariant] = useState(() => Math.random() > 0.5 ? 0 : 1);
+  const cartId = isLoggedIn && user ? user.id : localCartId;
   const { data: productsData, isLoading: isLoadingProducts } = useQuery({
     queryKey: ["products", filters],
     queryFn: async () => {
@@ -42,6 +56,7 @@ export function HomePage() {
       params.append("maxPrice", String(filters.priceRange[1]));
       return api<{ items: Product[]; next: string | null }>(`/api/products?${params.toString()}`);
     },
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
   const { data: cart, refetch: refetchCart } = useQuery({
     queryKey: ["cart", cartId],
@@ -80,6 +95,25 @@ export function HomePage() {
     handleUpdateCart(productId, 0);
     toast.info("Item removed from cart.");
   };
+  const handleCheckout = async () => {
+    if (!user) {
+      toast.info("Please log in to proceed to checkout.");
+      setLoginModalOpen(true);
+      return;
+    }
+    try {
+      const { orderId } = await api<{ orderId: string }>('/api/checkout', {
+        method: 'POST',
+        body: JSON.stringify({ cartId, userId: user.id }),
+      });
+      await refetchCart();
+      toast.success("Checkout Successful!", {
+        description: `Your order #${orderId.slice(-6).toUpperCase()} has been placed.`,
+      });
+    } catch (error) {
+      toast.error("Checkout failed. Please try again.");
+    }
+  };
   const handleLoginSuccess = async (loggedInUser: User) => {
     if (localCartId) {
       try {
@@ -110,7 +144,7 @@ export function HomePage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <CartSheet items={cartItemsWithDetails} onUpdateQuantity={handleUpdateCart} onRemoveItem={handleRemoveFromCart}>
+            <CartSheet items={cartItemsWithDetails} onUpdateQuantity={handleUpdateCart} onRemoveItem={handleRemoveFromCart} onCheckout={handleCheckout}>
               <Button variant="ghost" size="icon" className="relative">
                 <ShoppingCart className="h-6 w-6" />
                 {totalCartItems > 0 && <Badge className="absolute -top-2 -right-2 h-6 w-6 rounded-full flex items-center justify-center p-0">{totalCartItems}</Badge>}
@@ -134,6 +168,9 @@ export function HomePage() {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to="/account"><UserIcon className="mr-2 h-4 w-4"/> Account</Link>
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={logout}>
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Log out</span>
@@ -153,10 +190,10 @@ export function HomePage() {
           <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-primary/10"></div>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-32 text-center relative">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: "easeOut" }}>
-              <h2 className="text-4xl md:text-6xl font-bold font-display tracking-tight text-pretty">Edge-First Ecommerce, Redefined.</h2>
-              <p className="mt-4 max-w-2xl mx-auto text-lg text-muted-foreground text-pretty">Discover our curated collection of high-quality products, delivered with unparalleled speed and reliability.</p>
+              <h2 className="text-4xl md:text-6xl font-bold font-display tracking-tight text-pretty">{heroVariants[heroVariant].title}</h2>
+              <p className="mt-4 max-w-2xl mx-auto text-lg text-muted-foreground text-pretty">{heroVariants[heroVariant].subtitle}</p>
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button size="lg" className="mt-8 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg">Shop Now</Button>
+                <Button size="lg" className="mt-8 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg">{heroVariants[heroVariant].cta}</Button>
               </motion.div>
             </motion.div>
           </div>
@@ -179,7 +216,11 @@ export function HomePage() {
       </main>
       <footer className="border-t">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center text-muted-foreground">
-          <p>Built with ❤️ at Cloudflare</p>
+          <div className="flex justify-center space-x-6 text-sm mb-4">
+            <Link to="/" className="hover:text-primary transition-colors">Home</Link>
+            <Link to="/account" className="hover:text-primary transition-colors">Account</Link>
+          </div>
+          <p>Built with ��️ at Cloudflare</p>
         </div>
       </footer>
       <AnimatePresence>
@@ -188,7 +229,7 @@ export function HomePage() {
             <DialogContent className="sm:max-w-3xl">
               <DialogHeader><DialogTitle>{selectedProduct.title}</DialogTitle></DialogHeader>
               <div className="grid md:grid-cols-2 gap-6 items-start">
-                <img src={selectedProduct.imageUrl} alt={selectedProduct.title} className="w-full h-auto object-cover rounded-lg aspect-square" />
+                <img src={selectedProduct.imageUrl} alt={selectedProduct.title} className="w-full h-auto object-cover rounded-lg aspect-square" loading="lazy" />
                 <div className="space-y-4">
                   <p className="text-muted-foreground">{selectedProduct.description}</p>
                   <div className="flex items-baseline gap-2"><span className="text-3xl font-bold">${selectedProduct.price.toFixed(2)}</span></div>

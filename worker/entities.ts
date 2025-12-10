@@ -1,5 +1,5 @@
 import { IndexedEntity } from "./core-utils";
-import type { Product, Cart, CartItem, User } from "@shared/types";
+import type { Product, Cart, CartItem, User, Order, OrderItem } from "@shared/types";
 import { MOCK_PRODUCTS } from "@shared/mock-data";
 // MOCK USERS
 export const MOCK_USERS: User[] = [
@@ -13,7 +13,8 @@ export class UserEntity extends IndexedEntity<User> {
   static readonly indexName = "users";
   static readonly initialState: User = { id: "", email: "", name: "" };
   static seedData = MOCK_USERS;
-  static keyOf(state: User): string { return state.email; } // Use email as unique key for lookup
+  // NOTE: Removed custom keyOf to use default state.id, fixing the type error.
+  // Login logic will now list users and filter by email.
 }
 // PRODUCT ENTITY
 export class ProductEntity extends IndexedEntity<Product> {
@@ -36,7 +37,7 @@ export class ProductEntity extends IndexedEntity<Product> {
 export class CartEntity extends IndexedEntity<Cart> {
   static readonly entityName = "cart";
   static readonly indexName = "carts";
-  static readonly initialState: Cart = { id: "", items: [] };
+  static readonly initialState: Cart = { id: "", userId: undefined, items: [] };
   async updateItemQuantity(productId: string, quantity: number): Promise<Cart> {
     return this.mutate(cart => {
       const itemIndex = cart.items.findIndex(i => i.productId === productId);
@@ -66,4 +67,16 @@ export class CartEntity extends IndexedEntity<Cart> {
       return cart;
     });
   }
+}
+// ORDER ENTITY
+export class OrderEntity extends IndexedEntity<Order> {
+  static readonly entityName = "order";
+  static readonly indexName = "orders";
+  static readonly initialState: Order = {
+    id: "",
+    userId: "",
+    items: [],
+    total: 0,
+    timestamp: "",
+  };
 }
