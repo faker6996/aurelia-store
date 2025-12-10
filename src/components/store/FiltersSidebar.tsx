@@ -4,7 +4,6 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { X } from "lucide-react";
-import { motion } from "framer-motion";
 export interface Filters {
   categories: string[];
   brands: string[];
@@ -54,77 +53,53 @@ export function FiltersSidebar({ filters, setFilters, allCategories, allBrands, 
         <AccordionItem value="category">
           <AccordionTrigger className="text-base">Category</AccordionTrigger>
           <AccordionContent>
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
-              className="overflow-hidden"
-            >
-              <div className="space-y-2 pt-2">
-                {allCategories.map((category) => (
-                  <div key={category} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`cat-${category}`}
-                      checked={filters.categories.includes(category)}
-                      onCheckedChange={() => handleCategoryChange(category)}
-                    />
-                    <Label htmlFor={`cat-${category}`} className="font-normal cursor-pointer">{category}</Label>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
+            <div className="space-y-2">
+              {allCategories.map((category) => (
+                <div key={category} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`cat-${category}`}
+                    checked={filters.categories.includes(category)}
+                    onCheckedChange={() => handleCategoryChange(category)}
+                  />
+                  <Label htmlFor={`cat-${category}`} className="font-normal cursor-pointer">{category}</Label>
+                </div>
+              ))}
+            </div>
           </AccordionContent>
         </AccordionItem>
         <AccordionItem value="price">
           <AccordionTrigger className="text-base">Price Range</AccordionTrigger>
           <AccordionContent>
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
-              className="overflow-hidden"
-            >
-              <div className="p-2">
-                <Slider
-                  min={0}
-                  max={MAX_PRICE}
-                  step={10}
-                  value={filters.priceRange}
-                  onValueChange={handlePriceChange}
-                />
-                <div className="flex justify-between text-sm text-muted-foreground mt-2">
-                  <span>${filters.priceRange[0]}</span>
-                  <span>${filters.priceRange[1]}</span>
-                </div>
+            <div className="p-2">
+              <Slider
+                min={0}
+                max={MAX_PRICE}
+                step={10}
+                value={filters.priceRange}
+                onValueChange={handlePriceChange}
+              />
+              <div className="flex justify-between text-sm text-muted-foreground mt-2">
+                <span>${filters.priceRange[0]}</span>
+                <span>${filters.priceRange[1]}</span>
               </div>
-            </motion.div>
+            </div>
           </AccordionContent>
         </AccordionItem>
         <AccordionItem value="brand">
           <AccordionTrigger className="text-base">Brand</AccordionTrigger>
           <AccordionContent>
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
-              className="overflow-hidden"
-            >
-              <div className="space-y-2 pt-2">
-                {allBrands.map((brand) => (
-                  <div key={brand} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`brand-${brand}`}
-                      checked={filters.brands.includes(brand)}
-                      onCheckedChange={() => handleBrandChange(brand)}
-                    />
-                    <Label htmlFor={`brand-${brand}`} className="font-normal cursor-pointer">{brand}</Label>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
+            <div className="space-y-2">
+              {allBrands.map((brand) => (
+                <div key={brand} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`brand-${brand}`}
+                    checked={filters.brands.includes(brand)}
+                    onCheckedChange={() => handleBrandChange(brand)}
+                  />
+                  <Label htmlFor={`brand-${brand}`} className="font-normal cursor-pointer">{brand}</Label>
+                </div>
+              ))}
+            </div>
           </AccordionContent>
         </AccordionItem>
       </Accordion>

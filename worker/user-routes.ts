@@ -1,75 +1,85 @@
 import { Hono } from "hono";
 import type { Env } from './core-utils';
-import { UserEntity, ChatBoardEntity } from "./entities";
+import { ProductEntity, CartEntity } from "./entities";
 import { ok, bad, notFound, isStr } from './core-utils';
-
+import type { Product } from "@shared/types";
 export function userRoutes(app: Hono<{ Bindings: Env }>) {
-  app.get('/api/test', (c) => c.json({ success: true, data: { name: 'CF Workers Demo' }}));
-
-  // USERS
-  app.get('/api/users', async (c) => {
-    await UserEntity.ensureSeed(c.env);
-    const cq = c.req.query('cursor');
-    const lq = c.req.query('limit');
-    const page = await UserEntity.list(c.env, cq ?? null, lq ? Math.max(1, (Number(lq) | 0)) : undefined);
-    return ok(c, page);
+  // Ensure products are seeded on first load
+  app.use('/api/products*', async (c, next) => {
+    await ProductEntity.ensureSeed(c.env);
+    await next();
   });
-
-  app.post('/api/users', async (c) => {
-    const { name } = (await c.req.json()) as { name?: string };
-    if (!name?.trim()) return bad(c, 'name required');
-    return ok(c, await UserEntity.create(c.env, { id: crypto.randomUUID(), name: name.trim() }));
+  // GET /api/products - List products with filtering
+  app.get('/api/products', async (c) => {
+    const { cursor, limit, category, brand, minPrice, maxPrice } = c.req.query();
+    // For this mock phase, we fetch all and filter in-memory.
+    // A real implementation would use more advanced indexing in the DO.
+    const { items: allProducts } = await ProductEntity.list(c.env, null, 1000); // Fetch all
+    let filteredProducts: Product[] = allProducts;
+    if (category) {
+      const categories = category.split(',');
+      filteredProducts = filteredProducts.filter(p => categories.includes(p.category));
+    }
+    if (brand) {
+      const brands = brand.split(',');
+      filteredProducts = filteredProducts.filter(p => brands.includes(p.brand));
+    }
+    if (minPrice) {
+      filteredProducts = filteredProducts.filter(p => p.price >= Number(minPrice));
+    }
+    if (maxPrice) {
+      filteredProducts = filteredProducts.filter(p => p.price <= Number(maxPrice));
+    }
+    // Simple cursor/limit pagination on the filtered results
+    const limitNum = limit ? parseInt(limit, 10) : 12;
+    const cursorIndex = cursor ? filteredProducts.findIndex(p => p.id === cursor) + 1 : 0;
+    const paginatedItems = filteredProducts.slice(cursorIndex, cursorIndex + limitNum);
+    const nextCursor = paginatedItems.length === limitNum ? paginatedItems[paginatedItems.length - 1].id : null;
+    return ok(c, { items: paginatedItems, next: nextCursor });
   });
-
-  // CHATS
-  app.get('/api/chats', async (c) => {
-    await ChatBoardEntity.ensureSeed(c.env);
-    const cq = c.req.query('cursor');
-    const lq = c.req.query('limit');
-    const page = await ChatBoardEntity.list(c.env, cq ?? null, lq ? Math.max(1, (Number(lq) | 0)) : undefined);
-    return ok(c, page);
+  // GET /api/products/:id - Get a single product
+  app.get('/api/products/:id', async (c) => {
+    const { id } = c.req.param();
+    const product = new ProductEntity(c.env, id);
+    if (!(await product.exists())) {
+      return notFound(c, 'Product not found');
+    }
+    return ok(c, await product.getState());
   });
-
-  app.post('/api/chats', async (c) => {
-    const { title } = (await c.req.json()) as { title?: string };
-    if (!title?.trim()) return bad(c, 'title required');
-    const created = await ChatBoardEntity.create(c.env, { id: crypto.randomUUID(), title: title.trim(), messages: [] });
-    return ok(c, { id: created.id, title: created.title });
+  // GET /api/cart/:cartId - Get cart contents
+  app.get('/api/cart/:cartId', async (c) => {
+    const { cartId } = c.req.param();
+    const cart = new CartEntity(c.env, cartId);
+    if (!(await cart.exists())) {
+      // Create a new cart if it doesn't exist
+      const newCart = await CartEntity.create(c.env, { id: cartId, items: [] });
+      return ok(c, newCart);
+    }
+    return ok(c, await cart.getState());
   });
-
-  // MESSAGES
-  app.get('/api/chats/:chatId/messages', async (c) => {
-    const chat = new ChatBoardEntity(c.env, c.req.param('chatId'));
-    if (!await chat.exists()) return notFound(c, 'chat not found');
-    return ok(c, await chat.listMessages());
+  // POST /api/cart - Add/update item in cart
+  app.post('/api/cart', async (c) => {
+    const { cartId: reqCartId, productId, quantity } = await c.req.json<{ cartId?: string; productId: string; quantity: number }>();
+    if (!isStr(productId) || typeof quantity !== 'number') {
+      return bad(c, 'productId and quantity are required');
+    }
+    const cartId = reqCartId || crypto.randomUUID();
+    const cart = new CartEntity(c.env, cartId);
+    if (!(await cart.exists())) {
+      await CartEntity.create(c.env, { id: cartId, items: [] });
+    }
+    const product = new ProductEntity(c.env, productId);
+    if (!(await product.exists())) {
+      return notFound(c, 'Product not found');
+    }
+    // In this phase, we just update quantity. A real app would check inventory.
+    const updatedCart = await cart.updateItemQuantity(productId, quantity);
+    return ok(c, updatedCart);
   });
-
-  app.post('/api/chats/:chatId/messages', async (c) => {
-    const chatId = c.req.param('chatId');
-    const { userId, text } = (await c.req.json()) as { userId?: string; text?: string };
-    if (!isStr(userId) || !text?.trim()) return bad(c, 'userId and text required');
-    const chat = new ChatBoardEntity(c.env, chatId);
-    if (!await chat.exists()) return notFound(c, 'chat not found');
-    return ok(c, await chat.sendMessage(userId, text.trim()));
-  });
-
-  // DELETE: Users
-  app.delete('/api/users/:id', async (c) => ok(c, { id: c.req.param('id'), deleted: await UserEntity.delete(c.env, c.req.param('id')) }));
-
-  app.post('/api/users/deleteMany', async (c) => {
-    const { ids } = (await c.req.json()) as { ids?: string[] };
-    const list = ids?.filter(isStr) ?? [];
-    if (list.length === 0) return bad(c, 'ids required');
-    return ok(c, { deletedCount: await UserEntity.deleteMany(c.env, list), ids: list });
-  });
-
-  // DELETE: Chats
-  app.delete('/api/chats/:id', async (c) => ok(c, { id: c.req.param('id'), deleted: await ChatBoardEntity.delete(c.env, c.req.param('id')) }));
-
-  app.post('/api/chats/deleteMany', async (c) => {
-    const { ids } = (await c.req.json()) as { ids?: string[] };
-    const list = ids?.filter(isStr) ?? [];
-    if (list.length === 0) return bad(c, 'ids required');
-    return ok(c, { deletedCount: await ChatBoardEntity.deleteMany(c.env, list), ids: list });
+  // POST /api/checkout - Mock checkout
+  app.post('/api/checkout', (c) => {
+    // In a real app, this would trigger a payment flow.
+    // For now, it just returns a success message.
+    return ok(c, { message: 'Checkout process initiated successfully.' });
   });
 }

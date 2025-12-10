@@ -1,15 +1,93 @@
-import type { User, Chat, ChatMessage } from './types';
-
-export const MOCK_USERS: User[] = [
-  { id: 'u1', name: 'User A' },
-  { id: 'u2', name: 'User B' }
+import type { Product } from './types';
+export const MOCK_CATEGORIES = ["Electronics", "Apparel", "Home Goods", "Books"];
+export const MOCK_BRANDS = ["Aurelia", "Cloudflare", "Vercel", "React"];
+export const MOCK_PRODUCTS: Product[] = [
+  {
+    id: 'prod_1',
+    title: 'Aurelia Pro Keyboard',
+    description: 'A high-performance mechanical keyboard for developers.',
+    price: 159.99,
+    imageUrl: 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?q=80&w=870&auto=format&fit=crop',
+    category: 'Electronics',
+    brand: 'Aurelia',
+    colors: ['#000000', '#FFFFFF'],
+    inventory: 25,
+  },
+  {
+    id: 'prod_2',
+    title: 'Cloudflare Edge Mouse',
+    description: 'A blazing fast, low-latency wireless mouse.',
+    price: 79.99,
+    imageUrl: 'https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?q=80&w=765&auto=format&fit=crop',
+    category: 'Electronics',
+    brand: 'Cloudflare',
+    colors: ['#F38020', '#FFFFFF'],
+    inventory: 50,
+  },
+  {
+    id: 'prod_3',
+    title: 'React Component T-Shirt',
+    description: 'Show off your love for React with this stylish tee.',
+    price: 24.99,
+    imageUrl: 'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?q=80&w=687&auto=format&fit=crop',
+    category: 'Apparel',
+    brand: 'React',
+    colors: ['#222222', '#61DAFB'],
+    inventory: 150,
+  },
+  {
+    id: 'prod_4',
+    title: 'Vercel Deploy Mug',
+    description: 'The perfect mug for your morning coffee and deployments.',
+    price: 14.99,
+    imageUrl: 'https://images.unsplash.com/photo-1514432324627-a359b0568686?q=80&w=687&auto=format&fit=crop',
+    category: 'Home Goods',
+    brand: 'Vercel',
+    colors: ['#FFFFFF'],
+    inventory: 8,
+  },
+  {
+    id: 'prod_5',
+    title: 'Aurelia Hoodie',
+    description: 'Stay warm and stylish with this comfortable hoodie.',
+    price: 59.99,
+    imageUrl: 'https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?q=80&w=772&auto=format&fit=crop',
+    category: 'Apparel',
+    brand: 'Aurelia',
+    colors: ['#1E3A8A', '#F38020'],
+    inventory: 40,
+  },
+  {
+    id: 'prod_6',
+    title: 'The Isomorphic JavaScript Book',
+    description: 'A deep dive into modern web development.',
+    price: 39.99,
+    imageUrl: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=687&auto=format&fit=crop',
+    category: 'Books',
+    brand: 'React',
+    colors: [],
+    inventory: 100,
+  },
+  {
+    id: 'prod_7',
+    title: 'Cloudflare Workers Poster',
+    description: 'Decorate your office with this serverless-themed poster.',
+    price: 19.99,
+    imageUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726a?q=80&w=870&auto=format&fit=crop',
+    category: 'Home Goods',
+    brand: 'Cloudflare',
+    colors: [],
+    inventory: 200,
+  },
+  {
+    id: 'prod_8',
+    title: 'Next.js Conf Cap',
+    description: 'A stylish cap from the latest Next.js conference.',
+    price: 29.99,
+    imageUrl: 'https://images.unsplash.com/photo-1521369909049-ecaf380c8536?q=80&w=687&auto=format&fit=crop',
+    category: 'Apparel',
+    brand: 'Vercel',
+    colors: ['#000000'],
+    inventory: 5,
+  },
 ];
-
-export const MOCK_CHATS: Chat[] = [
-  { id: 'c1', title: 'General' },
-];
-
-export const MOCK_CHAT_MESSAGES: ChatMessage[] = [
-  { id: 'm1', chatId: 'c1', userId: 'u1', text: 'Hello', ts: Date.now() },
-];
-  

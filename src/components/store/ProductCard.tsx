@@ -12,16 +12,20 @@ interface ProductCardProps {
 }
 export function ProductCard({ product, onQuickView, onAddToCart }: ProductCardProps) {
   return (
-    <div className="relative group h-full">
-      <Card className="overflow-hidden transition-all duration-300 group-hover:shadow-xl h-full flex flex-col">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      whileHover={{ y: -5, scale: 1.02 }}
+      className="relative group"
+    >
+      <Card className="overflow-hidden transition-all duration-300 group-hover:shadow-xl">
         <CardContent className="p-0">
           <div className="relative">
             <img
               src={product.imageUrl}
               alt={product.title}
               className="w-full h-auto object-cover aspect-[4/3] transition-transform duration-300 group-hover:scale-105"
-              loading="lazy"
-              decoding="async"
             />
             <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-2">
               <Button size="icon" variant="secondary" className="rounded-full" onClick={() => onQuickView(product)}>
@@ -37,7 +41,7 @@ export function ProductCard({ product, onQuickView, onAddToCart }: ProductCardPr
               </Badge>
             )}
           </div>
-          <div className="p-4 space-y-2 flex-1">
+          <div className="p-4 space-y-2">
             <h3 className="text-lg font-semibold truncate">{product.title}</h3>
             <p className="text-sm text-muted-foreground">{product.category}</p>
             <div className="flex items-center justify-between">
@@ -49,13 +53,13 @@ export function ProductCard({ product, onQuickView, onAddToCart }: ProductCardPr
             </div>
           </div>
         </CardContent>
-        <CardFooter className="p-4 pt-0 mt-auto">
+        <CardFooter className="p-4 pt-0">
           <Button className="w-full" onClick={() => onAddToCart(product)}>
             <ShoppingCart className="mr-2 h-4 w-4" /> Add to Cart
           </Button>
         </CardFooter>
       </Card>
-    </div>
+    </motion.div>
   );
 }
 export function ProductCardSkeleton() {

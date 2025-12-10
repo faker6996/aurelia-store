@@ -1,148 +1,202 @@
-// Home page of the app, Currently a demo page for demonstration.
-// Please rewrite this file to implement your own logic. Do not delete it to use some other file as homepage. Simply replace the entire contents of this file.
-import { useEffect } from 'react'
-import { Sparkles } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { ThemeToggle } from '@/components/ThemeToggle'
-import { Toaster, toast } from '@/components/ui/sonner'
-import { create } from 'zustand'
-import { useShallow } from 'zustand/react/shallow'
-// import { AppLayout } from '@/components/layout/AppLayout'
-
-// Timer store: independent slice with a clear, minimal API, for demonstration
-type TimerState = {
-  isRunning: boolean;
-  elapsedMs: number;
-  start: () => void;
-  pause: () => void;
-  reset: () => void;
-  tick: (deltaMs: number) => void;
-}
-
-const useTimerStore = create<TimerState>((set) => ({
-  isRunning: false,
-  elapsedMs: 0,
-  start: () => set({ isRunning: true }),
-  pause: () => set({ isRunning: false }),
-  reset: () => set({ elapsedMs: 0, isRunning: false }),
-  tick: (deltaMs) => set((s) => ({ elapsedMs: s.elapsedMs + deltaMs })),
-}))
-
-// Counter store: separate slice to showcase multiple stores without coupling
-type CounterState = {
-  count: number;
-  inc: () => void;
-  reset: () => void;
-}
-
-const useCounterStore = create<CounterState>((set) => ({
-  count: 0,
-  inc: () => set((s) => ({ count: s.count + 1 })),
-  reset: () => set({ count: 0 }),
-}))
-
-function formatDuration(ms: number): string {
-  const total = Math.max(0, Math.floor(ms / 1000))
-  const m = Math.floor(total / 60)
-  const s = total % 60
-  return `${m}:${s.toString().padStart(2, '0')}`
-}
-
+import { useState, useMemo, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useLocalStorage } from "react-use";
+import { AnimatePresence, motion } from "framer-motion";
+import { Toaster, toast } from "sonner";
+import { Filter, ShoppingCart, X } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { api } from "@/lib/api-client";
+import type { Product, Cart, CartItem } from "@shared/types";
+import { MOCK_BRANDS, MOCK_CATEGORIES } from "@shared/mock-data";
+import { ProductGrid } from "@/components/store/ProductGrid";
+import { FiltersSidebar, Filters } from "@/components/store/FiltersSidebar";
+import { CartSheet } from "@/components/store/CartSheet";
+const MAX_PRICE = 500;
 export function HomePage() {
-  // Select only what is needed to avoid unnecessary re-renders
-  const { isRunning, elapsedMs } = useTimerStore(
-    useShallow((s) => ({ isRunning: s.isRunning, elapsedMs: s.elapsedMs })),
-  )
-  const start = useTimerStore((s) => s.start)
-  const pause = useTimerStore((s) => s.pause)
-  const resetTimer = useTimerStore((s) => s.reset)
-  const count = useCounterStore((s) => s.count)
-  const inc = useCounterStore((s) => s.inc)
-  const resetCount = useCounterStore((s) => s.reset)
-
-  // Drive the timer only while running; avoid update-depth issues with a scoped RAF
-  useEffect(() => {
-    if (!isRunning) return
-    let raf = 0
-    let last = performance.now()
-    const loop = () => {
-      const now = performance.now()
-      const delta = now - last
-      last = now
-      // Read store API directly to keep effect deps minimal and stable
-      useTimerStore.getState().tick(delta)
-      raf = requestAnimationFrame(loop)
+  const isMobile = useIsMobile();
+  const [filters, setFilters] = useState<Filters>({
+    categories: [],
+    brands: [],
+    priceRange: [0, MAX_PRICE],
+  });
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [cartId, setCartId] = useLocalStorage("cartId", crypto.randomUUID());
+  const { data: productsData, isLoading: isLoadingProducts } = useQuery({
+    queryKey: ["products", filters],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (filters.categories.length) params.append("category", filters.categories.join(","));
+      if (filters.brands.length) params.append("brand", filters.brands.join(","));
+      params.append("minPrice", String(filters.priceRange[0]));
+      params.append("maxPrice", String(filters.priceRange[1]));
+      return api<{ items: Product[]; next: string | null }>(`/api/products?${params.toString()}`);
+    },
+  });
+  const { data: cart, refetch: refetchCart } = useQuery({
+    queryKey: ["cart", cartId],
+    queryFn: () => api<Cart>(`/api/cart/${cartId}`),
+    enabled: !!cartId,
+  });
+  const products = productsData?.items ?? [];
+  const cartItems = cart?.items ?? [];
+  const productsById = useMemo(() => new Map(products.map(p => [p.id, p])), [products]);
+  const cartItemsWithDetails = useMemo(() => {
+    return cartItems.map(item => ({
+      ...item,
+      product: productsById.get(item.productId),
+    })).filter(item => item.product);
+  }, [cartItems, productsById]);
+  const totalCartItems = useMemo(() => cartItems.reduce((sum, item) => sum + item.quantity, 0), [cartItems]);
+  const handleUpdateCart = useCallback(async (productId: string, quantity: number) => {
+    try {
+      await api<Cart>('/api/cart', {
+        method: 'POST',
+        body: JSON.stringify({ cartId, productId, quantity }),
+      });
+      await refetchCart();
+    } catch (error) {
+      toast.error("Failed to update cart.");
     }
-    raf = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(raf)
-  }, [isRunning])
-
-  const onPleaseWait = () => {
-    inc()
-    if (!isRunning) {
-      start()
-      toast.success('Building your app…', {
-        description: 'Hang tight, we\'re setting everything up.',
-      })
-    } else {
-      pause()
-      toast.info('Taking a short pause', {
-        description: 'We\'ll continue shortly.',
-      })
-    }
-  }
-
-  const formatted = formatDuration(elapsedMs)
-
+  }, [cartId, refetchCart]);
+  const handleAddToCart = (product: Product) => {
+    const existingItem = cartItems.find(item => item.productId === product.id);
+    const newQuantity = (existingItem?.quantity ?? 0) + 1;
+    handleUpdateCart(product.id, newQuantity);
+    toast.success(`${product.title} added to cart!`);
+  };
+  const handleRemoveFromCart = (productId: string) => {
+    handleUpdateCart(productId, 0);
+    toast.info("Item removed from cart.");
+  };
   return (
-    // <AppLayout> Uncomment this if you want to use the sidebar
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground p-4 overflow-hidden relative">
-        <ThemeToggle />
-        <div className="absolute inset-0 bg-gradient-rainbow opacity-10 dark:opacity-20 pointer-events-none" />
-        <div className="text-center space-y-8 relative z-10 animate-fade-in">
-          <div className="flex justify-center">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-primary flex items-center justify-center shadow-primary floating">
-              <Sparkles className="w-8 h-8 text-white rotating" />
-            </div>
+    <div className="bg-background text-foreground min-h-screen">
+      <ThemeToggle className="fixed top-4 right-4 z-50" />
+      <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
+          <div className="flex items-center gap-2">
+            <ShoppingCart className="h-6 w-6 text-primary" />
+            <h1 className="text-2xl font-bold font-display">Aurelia Store</h1>
           </div>
-          <h1 className="text-5xl md:text-7xl font-display font-bold text-balance leading-tight">
-            Creating your <span className="text-gradient">app</span>
-          </h1>
-          <p className="text-lg md:text-xl text-muted-foreground max-w-xl mx-auto text-pretty">
-            Your application would be ready soon.
-          </p>
-          <div className="flex justify-center gap-4">
-            <Button 
-              size="lg"
-              onClick={onPleaseWait}
-              className="btn-gradient px-8 py-4 text-lg font-semibold hover:-translate-y-0.5 transition-all duration-200"
-              aria-live="polite"
+          <CartSheet
+            items={cartItemsWithDetails}
+            onUpdateQuantity={handleUpdateCart}
+            onRemoveItem={handleRemoveFromCart}
+          >
+            <Button variant="ghost" size="icon" className="relative">
+              <ShoppingCart className="h-6 w-6" />
+              {totalCartItems > 0 && (
+                <Badge className="absolute -top-2 -right-2 h-6 w-6 rounded-full flex items-center justify-center p-0">
+                  {totalCartItems}
+                </Badge>
+              )}
+            </Button>
+          </CartSheet>
+        </div>
+      </header>
+      <main>
+        {/* Hero Section */}
+        <section className="relative bg-secondary">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-32 text-center">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, ease: "easeOut" }}
             >
-              Please Wait
-            </Button>
+              <h2 className="text-4xl md:text-6xl font-bold font-display tracking-tight">
+                Edge-First Ecommerce
+              </h2>
+              <p className="mt-4 max-w-2xl mx-auto text-lg text-muted-foreground">
+                Discover our curated collection of high-quality products, delivered with unparalleled speed and reliability.
+              </p>
+              <Button size="lg" className="mt-8">
+                Shop Now
+              </Button>
+            </motion.div>
           </div>
-          <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
-            <div>
-              Time elapsed: <span className="font-medium tabular-nums text-foreground">{formatted}</span>
+        </section>
+        {/* Main Content */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10 lg:py-12">
+          <div className="lg:grid lg:grid-cols-4 lg:gap-8">
+            {isMobile ? (
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="outline" className="mb-6 w-full">
+                    <Filter className="mr-2 h-4 w-4" />
+                    Filters
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="left">
+                  <SheetHeader><SheetTitle>Filters</SheetTitle></SheetHeader>
+                  <FiltersSidebar
+                    filters={filters}
+                    setFilters={setFilters}
+                    allCategories={MOCK_CATEGORIES}
+                    allBrands={MOCK_BRANDS}
+                    className="mt-4"
+                  />
+                </SheetContent>
+              </Sheet>
+            ) : (
+              <FiltersSidebar
+                filters={filters}
+                setFilters={setFilters}
+                allCategories={MOCK_CATEGORIES}
+                allBrands={MOCK_BRANDS}
+                className="sticky top-24 h-fit col-span-1"
+              />
+            )}
+            <div className="lg:col-span-3">
+              <ProductGrid
+                products={products}
+                isLoading={isLoadingProducts}
+                onQuickView={setSelectedProduct}
+                onAddToCart={handleAddToCart}
+              />
             </div>
-            <div>
-              Coins: <span className="font-medium tabular-nums text-foreground">{count}</span>
-            </div>
-          </div>
-          <div className="flex justify-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => { resetTimer(); resetCount(); toast('Reset complete') }}>
-              Reset
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => { inc(); toast('Coin added') }}>
-              Add Coin
-            </Button>
           </div>
         </div>
-        <footer className="absolute bottom-8 text-center text-muted-foreground/80">
-          <p>Powered by Cloudflare</p>
-        </footer>
-        <Toaster richColors closeButton />
-      </div>
-    // </AppLayout> Uncomment this if you want to use the sidebar
-  )
+      </main>
+      <footer className="border-t">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center text-muted-foreground">
+          <p>Built with ❤�� at Cloudflare</p>
+        </div>
+      </footer>
+      <AnimatePresence>
+        {selectedProduct && (
+          <Dialog open onOpenChange={() => setSelectedProduct(null)}>
+            <DialogContent className="sm:max-w-3xl">
+              <DialogHeader>
+                <DialogTitle>{selectedProduct.title}</DialogTitle>
+              </DialogHeader>
+              <div className="grid md:grid-cols-2 gap-6 items-start">
+                <img src={selectedProduct.imageUrl} alt={selectedProduct.title} className="w-full h-auto object-cover rounded-lg aspect-square" />
+                <div className="space-y-4">
+                  <p className="text-muted-foreground">{selectedProduct.description}</p>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-bold">${selectedProduct.price.toFixed(2)}</span>
+                  </div>
+                  <Separator />
+                  <div className="text-sm">
+                    <p><strong>Category:</strong> {selectedProduct.category}</p>
+                    <p><strong>Brand:</strong> {selectedProduct.brand}</p>
+                    <p><strong>In Stock:</strong> {selectedProduct.inventory} units</p>
+                  </div>
+                  <Button size="lg" className="w-full" onClick={() => { handleAddToCart(selectedProduct); setSelectedProduct(null); }}>
+                    <ShoppingCart className="mr-2 h-5 w-5" /> Add to Cart
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+      </AnimatePresence>
+      <Toaster richColors closeButton />
+    </div>
+  );
 }

@@ -10,15 +10,26 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
 import type { CartItem, Product } from "@shared/types";
+import { toast } from "sonner";
+import { api } from "@/lib/api-client";
 interface CartSheetProps {
   children: React.ReactNode;
   items: (CartItem & { product?: Product })[];
   onUpdateQuantity: (productId: string, quantity: number) => void;
   onRemoveItem: (productId: string) => void;
-  onCheckout: () => void;
 }
-export function CartSheet({ children, items, onUpdateQuantity, onRemoveItem, onCheckout }: CartSheetProps) {
+export function CartSheet({ children, items, onUpdateQuantity, onRemoveItem }: CartSheetProps) {
   const subtotal = items.reduce((acc, item) => acc + (item.product?.price ?? 0) * item.quantity, 0);
+  const handleCheckout = async () => {
+    try {
+      await api('/api/checkout', { method: 'POST' });
+      toast.success("Checkout Successful!", {
+        description: "This is a mock checkout. No payment was processed.",
+      });
+    } catch (error) {
+      toast.error("Checkout failed. Please try again.");
+    }
+  };
   return (
     <Sheet>
       <SheetTrigger asChild>{children}</SheetTrigger>
@@ -33,7 +44,7 @@ export function CartSheet({ children, items, onUpdateQuantity, onRemoveItem, onC
               <div className="divide-y">
                 {items.map((item) => item.product && (
                   <div key={item.productId} className="flex items-center py-4">
-                    <img src={item.product.imageUrl} alt={item.product.title} className="w-20 h-20 object-cover rounded-md mr-4" loading="lazy" />
+                    <img src={item.product.imageUrl} alt={item.product.title} className="w-20 h-20 object-cover rounded-md mr-4" />
                     <div className="flex-1">
                       <h4 className="font-semibold">{item.product.title}</h4>
                       <p className="text-sm text-muted-foreground">${item.product.price.toFixed(2)}</p>
@@ -61,8 +72,8 @@ export function CartSheet({ children, items, onUpdateQuantity, onRemoveItem, onC
                   <span>Subtotal</span>
                   <span>${subtotal.toFixed(2)}</span>
                 </div>
-                <Button className="w-full" size="lg" onClick={onCheckout}>
-                  Proceed to Checkout
+                <Button className="w-full" size="lg" onClick={handleCheckout}>
+                  Checkout
                 </Button>
               </div>
             </SheetFooter>
