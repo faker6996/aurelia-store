@@ -1,6 +1,6 @@
 # Aurelia Store
 
-[cloudflarebutton]
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/faker6996/aurelia-store)
 
 ## Overview
 
@@ -113,7 +113,7 @@ Deploy to Cloudflare Workers for edge deployment with global persistence via Dur
    - Set environment variables if needed (e.g., via Wrangler secrets: `wrangler secret put API_KEY`).
    - Monitor logs and metrics in the Cloudflare dashboard.
 
-[cloudflarebutton]
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/faker6996/aurelia-store)
 
 ## Roadmap
 - **Phase 1** (Current): Stunning frontend with mock backend for products and cart.
