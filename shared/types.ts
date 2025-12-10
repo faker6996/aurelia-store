@@ -3,6 +3,11 @@ export interface ApiResponse<T = unknown> {
   data?: T;
   error?: string;
 }
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+}
 export interface Product {
   id: string;
   title: string;
@@ -20,5 +25,6 @@ export interface CartItem {
 }
 export interface Cart {
   id: string;
+  userId?: string;
   items: CartItem[];
 }

@@ -1,6 +1,20 @@
 import { IndexedEntity } from "./core-utils";
-import type { Product, Cart, CartItem } from "@shared/types";
+import type { Product, Cart, CartItem, User } from "@shared/types";
 import { MOCK_PRODUCTS } from "@shared/mock-data";
+// MOCK USERS
+export const MOCK_USERS: User[] = [
+  { id: "user_1", email: "test@example.com", name: "Test User" },
+  { id: "user_2", email: "aurelia@cloudflare.com", name: "Aurelia" },
+  { id: "user_3", email: "dev@shop.com", name: "Dev" },
+];
+// USER ENTITY
+export class UserEntity extends IndexedEntity<User> {
+  static readonly entityName = "user";
+  static readonly indexName = "users";
+  static readonly initialState: User = { id: "", email: "", name: "" };
+  static seedData = MOCK_USERS;
+  static keyOf(state: User): string { return state.email; } // Use email as unique key for lookup
+}
 // PRODUCT ENTITY
 export class ProductEntity extends IndexedEntity<Product> {
   static readonly entityName = "product";
@@ -23,40 +37,33 @@ export class CartEntity extends IndexedEntity<Cart> {
   static readonly entityName = "cart";
   static readonly indexName = "carts";
   static readonly initialState: Cart = { id: "", items: [] };
-  async addItem(productId: string, quantity: number): Promise<Cart> {
-    return this.mutate(cart => {
-      const existingItem = cart.items.find(item => item.productId === productId);
-      if (existingItem) {
-        existingItem.quantity += quantity;
-      } else {
-        cart.items.push({ productId, quantity });
-      }
-      // Ensure quantity is not negative
-      if (existingItem && existingItem.quantity <= 0) {
-        cart.items = cart.items.filter(item => item.productId !== productId);
-      }
-      return cart;
-    });
-  }
   async updateItemQuantity(productId: string, quantity: number): Promise<Cart> {
     return this.mutate(cart => {
-      const item = cart.items.find(i => i.productId === productId);
+      const itemIndex = cart.items.findIndex(i => i.productId === productId);
       if (quantity <= 0) {
-        cart.items = cart.items.filter(i => i.productId !== productId);
-      } else if (item) {
-        item.quantity = quantity;
+        if (itemIndex > -1) cart.items.splice(itemIndex, 1);
+      } else {
+        if (itemIndex > -1) {
+          cart.items[itemIndex].quantity = quantity;
+        } else {
+          cart.items.push({ productId, quantity });
+        }
       }
       return cart;
     });
   }
-  async removeItem(productId: string): Promise<Cart> {
+  async mergeItems(itemsToMerge: CartItem[], userId?: string): Promise<Cart> {
     return this.mutate(cart => {
-      cart.items = cart.items.filter(item => item.productId !== productId);
+      if (userId) cart.userId = userId;
+      itemsToMerge.forEach(newItem => {
+        const existingItem = cart.items.find(item => item.productId === newItem.productId);
+        if (existingItem) {
+          existingItem.quantity += newItem.quantity;
+        } else {
+          cart.items.push(newItem);
+        }
+      });
       return cart;
     });
-  }
-  async getItems(): Promise<CartItem[]> {
-    const { items } = await this.getState();
-    return items;
   }
 }
